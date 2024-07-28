@@ -1,0 +1,93 @@
+﻿@page "/"
+@attribute [Authorize]
+@inject IJSRuntime _jsRuntime
+
+
+<PageTitle>Product</PageTitle>
+
+<TopRow Title="Product" BtnText="Add Product" OnBtnClick="@OnAddClick" />
+<article class="content px-4">
+    @if (ShowEditForm)
+    {
+        <SimpleAdmin.BlazorUI.Pages.IndexComponent.IndexForm productModel="@productModel" OnSave="@OnFormSave" OnCancel="@OnFormCancel" />
+    }
+    <SimpleAdmin.BlazorUI.Pages.IndexComponent.IndexTable OnEdit="(arg)=>OnEdit(arg)" OnDelete="(arg)=>OnDelete(arg)" @ref="indexTable"/>
+
+</article>
+
+@code {
+    private ProductModel productModel = new ProductModel();
+    private bool ShowEditForm = false;
+    SimpleAdmin.BlazorUI.Pages.IndexComponent.IndexTable indexTable;
+
+    private async Task OnAddClick()
+    {
+        productModel = new ProductModel();
+        productModel.Photo = "/uploads/users/2022/04/04/649106081.png";
+        productModel.isEnabled = true;
+        ShowEditForm = true;
+    }
+    private async Task OnEdit(int id)
+    {
+        try
+        {
+            string token = await _tokenProvider.GetTokenAsync();
+            HttpClient httpclient = _http.CreateClient("SimpleAdmin");
+            httpclient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            productModel = await httpclient.GetFromJsonAsync<ProductModel>($"item/getbyid/{id}");
+            ShowEditForm = true;
+        }
+        catch (Exception ex)
+        {
+            _toastService.ShowError(@_messages.Value.CriticalError);
+            var logger = _loggerFactory.CreateLogger<Index>();
+            logger.Log(LogLevel.Error, ex, "Get item");
+        }
+    }
+    private async Task OnDelete(ProductModel item)
+    {
+        try
+        {
+            bool confirmed = await _jsRuntime.InvokeAsync<bool>("confirm", $"Are you sure to delete this item '{item.title}' ?");
+            if (confirmed)
+            {
+                string token = await _tokenProvider.GetTokenAsync();
+                HttpClient httpclient = _http.CreateClient("SimpleAdmin");
+                httpclient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+                var responce = await httpclient.DeleteAsync($"item/delete/{item.id}");
+                if (responce.IsSuccessStatusCode)
+                {
+                    await indexTable.Refresh();
+                    _toastService.ShowSuccess(@_messages.Value.DeleteSuccess);
+                }
+                else
+                {
+                    _toastService.ShowError(@_messages.Value.CriticalError);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _toastService.ShowError(@_messages.Value.CriticalError);
+            var logger = _loggerFactory.CreateLogger<Index>();
+            logger.Log(LogLevel.Error, ex, "Delete item");
+        }
+    }
+    private async Task OnFormSave()
+    {
+        FormInit();
+        await indexTable.Refresh();
+        
+    }
+    private async Task OnFormCancel()
+    {
+        FormInit();
+    }
+    private void FormInit()
+    {
+        productModel = null;
+        ShowEditForm = false;
+    }
+}
