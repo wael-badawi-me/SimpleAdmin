@@ -54,7 +54,7 @@ public class UserController : ControllerBase
         {
             user.password = BCrypt.Net.BCrypt.HashPassword(user.password);
         }
-        await _repo.Save(user.DBUser,/* AuthorizeAttribute.AuthUser.User.id*/ 1);
+        await _repo.Save(user.DBUser, AuthorizeAttribute.AuthUser.User.id );
         return Ok();
     }
     [HttpDelete("{id}")]
